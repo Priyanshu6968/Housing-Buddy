@@ -30,7 +30,8 @@ class Trainer:
                  val_loader=None,
                  device='cuda',
                  learning_rate=1e-4,
-                 weight_decay=1e-5):
+                 weight_decay=1e-5,
+                 price_scaler=None):
         """
         Initialize trainer.
         
@@ -41,11 +42,13 @@ class Trainer:
             device: Device to train on
             learning_rate: Initial learning rate
             weight_decay: L2 regularization
+            price_scaler: Scaler to unscale predictions for metrics
         """
         self.model = model.to(device)
         self.train_loader = train_loader
         self.val_loader = val_loader
         self.device = device
+        self.price_scaler = price_scaler
         
         # Loss and optimizer
         self.criterion = nn.MSELoss()
@@ -136,20 +139,32 @@ class Trainer:
             else:
                 outputs = self.model(tabular)
             
+            # Loss is calculated on SCALED values for stability
             loss = self.criterion(outputs, prices)
             
             total_loss += loss.item() * len(prices)
             total_samples += len(prices)
             
-            all_predictions.extend(outputs.cpu().numpy().flatten())
-            all_targets.extend(prices.cpu().numpy().flatten())
+            # For metrics, we want UNSCALED values (actual dollars)
+            preds = outputs.cpu().numpy().flatten()
+            targets = prices.cpu().numpy().flatten()
+            
+            if self.price_scaler is not None:
+                preds = self.price_scaler.inverse_transform(preds.reshape(-1, 1)).flatten()
+                targets = self.price_scaler.inverse_transform(targets.reshape(-1, 1)).flatten()
+            
+            all_predictions.extend(preds)
+            all_targets.extend(targets)
         
         avg_loss = total_loss / total_samples
-        rmse = np.sqrt(avg_loss)
         
-        # Calculate R²
+        # Calculate RMSE on unscaled values
         all_predictions = np.array(all_predictions)
         all_targets = np.array(all_targets)
+        mse = np.mean((all_targets - all_predictions) ** 2)
+        rmse = np.sqrt(mse)
+        
+        # Calculate R²
         ss_res = np.sum((all_targets - all_predictions) ** 2)
         ss_tot = np.sum((all_targets - all_targets.mean()) ** 2)
         r2 = 1 - (ss_res / ss_tot)
@@ -298,6 +313,15 @@ def train_fusion_model(train_csv, train_image_dir,
     num_features = full_dataset.get_feature_dim()
     print(f"Number of tabular features: {num_features}")
     
+    # Save price scaler
+    if full_dataset.price_scaler is not None:
+        model_dir = Path(save_path).parent
+        model_dir.mkdir(parents=True, exist_ok=True)
+        scaler_path = model_dir / 'price_scaler.joblib'
+        import joblib
+        joblib.dump(full_dataset.price_scaler, scaler_path)
+        print(f"Saved price scaler to: {scaler_path}")
+    
     model = FusionModel(
         tabular_input_dim=num_features,
         pretrained=True,
@@ -310,7 +334,8 @@ def train_fusion_model(train_csv, train_image_dir,
         train_loader=train_loader,
         val_loader=val_loader,
         device=device,
-        learning_rate=learning_rate
+        learning_rate=learning_rate,
+        price_scaler=full_dataset.price_scaler
     )
     
     history = trainer.train(

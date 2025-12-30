@@ -207,6 +207,15 @@ class PropertyPredictor:
             pretrained=False  # Don't need pretrained for inference
         )
         
+        # Load price scaler if it exists
+        price_scaler_path = Path(scaler_path).parent / 'price_scaler.joblib'
+        if price_scaler_path.exists():
+            self.price_scaler = joblib.load(price_scaler_path)
+            print(f"Loaded price scaler from {price_scaler_path}")
+        else:
+            self.price_scaler = None
+            print("No price scaler found, using raw predictions")
+        
         checkpoint = torch.load(model_path, map_location=device)
         if 'model_state_dict' in checkpoint:
             self.model.load_state_dict(checkpoint['model_state_dict'])
@@ -251,7 +260,12 @@ class PropertyPredictor:
         with torch.no_grad():
             prediction = self.model(img_tensor, tab_tensor)
         
-        return prediction.item()
+        val = prediction.item()
+        
+        if self.price_scaler is not None:
+            val = self.price_scaler.inverse_transform([[val]])[0][0]
+        
+        return val
     
     def predict_from_image_and_array(self, image_tensor, features_array):
         """
@@ -273,7 +287,12 @@ class PropertyPredictor:
         with torch.no_grad():
             prediction = self.model(img_tensor, tab_tensor)
         
-        return prediction.item()
+        val = prediction.item()
+        
+        if self.price_scaler is not None:
+            val = self.price_scaler.inverse_transform([[val]])[0][0]
+        
+        return val
 
 
 if __name__ == "__main__":

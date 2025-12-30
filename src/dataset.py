@@ -28,7 +28,8 @@ class PropertyDataset(Dataset):
                  scaler=None,
                  transform=None,
                  is_train=True,
-                 image_size=224):
+                 image_size=224,
+                 price_scaler=None):
         """
         Initialize the dataset.
         
@@ -40,11 +41,13 @@ class PropertyDataset(Dataset):
             transform: Image transforms (or None for default)
             is_train: Whether this is training data
             image_size: Size to resize images to
+            price_scaler: Scaler for price target (optional)
         """
         self.csv_path = Path(csv_path)
         self.image_dir = Path(image_dir)
         self.is_train = is_train
         self.image_size = image_size
+        self.price_scaler = price_scaler
         
         # Load data
         self.df = pd.read_csv(csv_path)
@@ -84,7 +87,17 @@ class PropertyDataset(Dataset):
         
         # Get target if available
         if 'price' in self.df.columns:
-            self.prices = self.df['price'].values.astype(np.float32)
+            prices = self.df['price'].values.astype(np.float32).reshape(-1, 1)
+            
+            # Scale prices
+            if self.price_scaler is None and is_train:
+                from sklearn.preprocessing import StandardScaler
+                self.price_scaler = StandardScaler()
+                self.prices = self.price_scaler.fit_transform(prices).flatten()
+            elif self.price_scaler is not None:
+                self.prices = self.price_scaler.transform(prices).flatten()
+            else:
+                self.prices = prices.flatten()
         else:
             self.prices = None
         
@@ -255,11 +268,11 @@ def create_dataloaders(train_csv, train_image_dir,
     # Create test dataset if provided
     if test_csv is not None and test_image_dir is not None:
         test_dataset = PropertyDataset(
-            csv_path=test_csv,
             image_dir=test_image_dir,
             feature_columns=feature_cols,
             scaler=scaler,
-            is_train=False
+            is_train=False,
+            price_scaler=train_dataset.price_scaler
         )
         
         test_loader = DataLoader(
@@ -272,7 +285,7 @@ def create_dataloaders(train_csv, train_image_dir,
     else:
         test_loader = None
     
-    return train_loader, test_loader, scaler, feature_cols
+    return train_loader, test_loader, scaler, feature_cols, train_dataset.price_scaler
 
 
 if __name__ == "__main__":
