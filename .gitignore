@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Environment
+.env
+
+# IDE
+.vscode/
+.idea/
+
+# Models (large files)
+models/*.pth
+models/*.pt
+
+# Data (don't commit large data files)
+data/images/
+*.xlsx
+*.csv
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Reports and auto-generated explanations
+reports/
+api_explanations/
+*.png
+*.jpg
+*.webp
+*.pth
+*.pt
+*.joblib
+*.zip

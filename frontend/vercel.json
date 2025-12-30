@@ -1,0 +1,15 @@
+{
+    "version": 2,
+    "name": "housing-buddy-dashboard",
+    "cleanUrls": true,
+    "framework": null,
+    "installCommand": "echo 'No install needed'",
+    "buildCommand": "echo 'Static hosting'",
+    "public": true,
+    "rewrites": [
+        {
+            "source": "/(.*)",
+            "destination": "/index.html"
+        }
+    ]
+}
