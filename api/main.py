@@ -39,6 +39,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.middleware("http")
+async def log_requests(request, call_next):
+    print(f"Request: {request.method} {request.url}")
+    try:
+        response = await call_next(request)
+        print(f"Response: {response.status_code}")
+        return response
+    except Exception as e:
+        print(f"Request FAILED: {str(e)}")
+        raise e
+
 # Paths
 PROJECT_ROOT = Path(__file__).parent.parent
 MODELS_DIR = PROJECT_ROOT / "models"

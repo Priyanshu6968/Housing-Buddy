@@ -1,9 +1,8 @@
 const getStoredApiUrl = () => localStorage.getItem('housing_buddy_api_url');
 const setStoredApiUrl = (url) => localStorage.setItem('housing_buddy_api_url', url);
 
-let API_BASE_URL = getStoredApiUrl() || (window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1')
-    ? 'http://127.0.0.1:9000'
-    : window.location.origin);
+// HARDCODED LOCALHOST - No caching, no confusion.
+let API_BASE_URL = 'http://localhost:9000';
 
 // DOM Elements
 const dropZone = document.getElementById('drop-zone');
@@ -17,7 +16,7 @@ const priceDisplay = document.getElementById('price-display');
 const heatmapImg = document.getElementById('heatmap-img');
 const resetBtn = document.getElementById('reset-btn');
 
-// Settings Modal Elements
+// Settings Modal Elements (Keeping logic but simplifying)
 const settingsBtn = document.getElementById('settings-btn');
 const settingsModal = document.getElementById('settings-modal');
 const apiUrlInput = document.getElementById('api-url-input');
@@ -31,15 +30,15 @@ apiUrlInput.value = API_BASE_URL;
 
 settingsBtn.addEventListener('click', () => settingsModal.classList.remove('hidden'));
 closeSettingsBtn.addEventListener('click', () => settingsModal.classList.add('hidden'));
+
 saveSettingsBtn.addEventListener('click', () => {
     let url = apiUrlInput.value.trim();
     if (url) {
-        // Remove trailing slash if present
         url = url.replace(/\/$/, "");
         API_BASE_URL = url;
-        setStoredApiUrl(url);
+        // setStoredApiUrl(url); // Don't save to avoid bad cache
         settingsModal.classList.add('hidden');
-        alert('API URL updated successfully!');
+        console.log('API URL updated to:', url);
     }
 });
 
@@ -110,7 +109,8 @@ featureForm.addEventListener('submit', async (e) => {
         submitBtn.innerText = 'Calculating...';
         resultsSection.classList.add('hidden');
 
-        const response = await fetch(`${API_BASE_URL}/predict-explain`, {
+        // FORCE CORRECT ENDPOINT
+        const response = await fetch(`http://localhost:9000/predict-explain`, {
             method: 'POST',
             body: formData
         });
@@ -124,8 +124,12 @@ featureForm.addEventListener('submit', async (e) => {
         displayResults(data);
     } catch (error) {
         console.error('Error:', error);
-        alert(`Error: ${error.message}\n\nPlease check if your API Tunnel URL is correct in Settings (⚙️).`);
-        settingsModal.classList.remove('hidden');
+        // Show error in UI instead of modal popup loop
+        resultsSection.classList.remove('hidden');
+        priceDisplay.innerText = "Error";
+        priceDisplay.style.color = "red";
+        document.getElementById('confidence-badge').innerText = "Connection Failed";
+        // settingsModal.classList.remove('hidden'); // DISABLE AUTO-OPEN
     } finally {
         submitBtn.disabled = false;
         submitBtn.innerText = 'Calculate Valuation';
