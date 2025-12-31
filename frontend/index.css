@@ -276,6 +276,10 @@ button {
     display: none;
 }
 
+.modal.hidden {
+    display: none !important;
+}
+
 footer {
     margin-top: 4rem;
     padding: 2rem 0;
@@ -349,61 +353,102 @@ footer {
     transform: rotate(45deg);
 }
 
-/* Modal Styles */
-.modal {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(15, 23, 42, 0.4);
-    backdrop-filter: blur(4px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-    animation: fadeIn 0.3s ease-out;
+.settings-container {
+    position: relative;
 }
 
-.modal-content {
+.settings-panel {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 0.5rem;
     background: white;
-    padding: 2.5rem;
     border-radius: var(--radius);
-    width: 90%;
-    max-width: 450px;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    box-shadow: var(--shadow);
+    padding: 1.5rem;
+    min-width: 300px;
+    z-index: 100;
+    animation: slideDown 0.2s ease-out;
 }
 
-.modal-hint {
-    font-size: 0.85rem;
-    color: var(--text-muted);
-    margin: 0.5rem 0 1.5rem;
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
-.input-group {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
+.settings-panel.hidden {
+    display: none;
 }
 
-.modal .primary-btn {
-    width: 100%;
-}
-
-.text-btn {
-    background: none;
-    border: none;
-    color: var(--text-muted);
-    margin-top: 1rem;
-    cursor: pointer;
-    font-size: 0.9rem;
+.settings-content label {
     display: block;
-    width: 100%;
+    font-size: 0.9rem;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    color: var(--text-main);
+}
+
+.settings-input-group {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.settings-input-group input {
+    flex: 1;
+    padding: 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.9rem;
+}
+
+.settings-save-btn {
+    background: var(--primary);
+    color: white;
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background 0.2s;
+}
+
+.settings-save-btn:hover {
+    background: var(--primary-hover);
+}
+
+.settings-save-btn:disabled {
+    background: var(--text-muted);
+    cursor: not-allowed;
+}
+
+.connection-status {
+    font-size: 0.85rem;
+    padding: 0.5rem;
+    border-radius: 6px;
     text-align: center;
 }
 
-.text-btn:hover {
-    color: var(--primary);
+.connection-status.success {
+    background: #DEF7EC;
+    color: #03543F;
+}
+
+.connection-status.error {
+    background: #FDE8E8;
+    color: #9B1C1C;
+}
+
+.connection-status.connecting {
+    background: #E1EFFE;
+    color: #1E429F;
 }
 
 @media (max-width: 768px) {

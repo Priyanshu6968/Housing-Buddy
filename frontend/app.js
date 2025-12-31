@@ -16,31 +16,83 @@ const priceDisplay = document.getElementById('price-display');
 const heatmapImg = document.getElementById('heatmap-img');
 const resetBtn = document.getElementById('reset-btn');
 
-// Settings Modal Elements (Keeping logic but simplifying)
+// Settings Panel Elements
 const settingsBtn = document.getElementById('settings-btn');
-const settingsModal = document.getElementById('settings-modal');
+const settingsPanel = document.getElementById('settings-panel');
 const apiUrlInput = document.getElementById('api-url-input');
 const saveSettingsBtn = document.getElementById('save-settings-btn');
-const closeSettingsBtn = document.getElementById('close-settings-btn');
+const connectionStatus = document.getElementById('connection-status');
 
 let selectedFile = null;
 
-// Initialize Settings
-apiUrlInput.value = API_BASE_URL;
+// Toggle settings panel
+settingsBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    settingsPanel.classList.toggle('hidden');
+});
 
-settingsBtn.addEventListener('click', () => settingsModal.classList.remove('hidden'));
-closeSettingsBtn.addEventListener('click', () => settingsModal.classList.add('hidden'));
-
-saveSettingsBtn.addEventListener('click', () => {
-    let url = apiUrlInput.value.trim();
-    if (url) {
-        url = url.replace(/\/$/, "");
-        API_BASE_URL = url;
-        // setStoredApiUrl(url); // Don't save to avoid bad cache
-        settingsModal.classList.add('hidden');
-        console.log('API URL updated to:', url);
+// Close panel when clicking outside
+document.addEventListener('click', (e) => {
+    if (!settingsPanel.contains(e.target) && !settingsBtn.contains(e.target)) {
+        settingsPanel.classList.add('hidden');
     }
 });
+
+saveSettingsBtn.addEventListener('click', async () => {
+    let url = apiUrlInput.value.trim();
+    if (!url) {
+        showConnectionStatus('Please enter an API URL', 'error');
+        return;
+    }
+
+    url = url.replace(/\/$/, "");
+
+    // Show loading state
+    saveSettingsBtn.disabled = true;
+    saveSettingsBtn.innerText = 'Connecting...';
+    showConnectionStatus('Connecting...', 'connecting');
+
+    try {
+        // Test connection with /health endpoint
+        const response = await fetch(`${url}/health`, {
+            method: 'GET',
+            headers: { 'Accept': 'application/json' }
+        });
+
+        if (!response.ok) {
+            throw new Error('API not responding');
+        }
+
+        const healthData = await response.json();
+
+        if (!healthData.model_loaded) {
+            throw new Error('Model not loaded on server');
+        }
+
+        // Success!
+        API_BASE_URL = url;
+        localStorage.setItem('housing_buddy_api_verified', 'true');
+        console.log('✅ Connected successfully to:', url);
+        showConnectionStatus('✅ Connected successfully', 'success');
+
+        // Auto-close panel after 2 seconds
+        setTimeout(() => {
+            settingsPanel.classList.add('hidden');
+        }, 2000);
+
+    } catch (error) {
+        console.error('Connection failed:', error);
+        showConnectionStatus(`❌ ${error.message}`, 'error');
+    } finally {
+        saveSettingsBtn.disabled = false;
+        saveSettingsBtn.innerText = 'Connect';
+    }
+});
+
+function showConnectionStatus(message, type) {
+    connectionStatus.textContent = message;
+    connectionStatus.className = `connection-status ${type}`;
+}
 
 // Handle Image Selection
 dropZone.addEventListener('click', () => imageInput.click());

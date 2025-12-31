@@ -7,7 +7,7 @@ REST API for predicting property prices using the trained multimodal model.
 from fastapi import FastAPI, HTTPException, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from typing import Optional, Dict, Any, Union
 import numpy as np
 import torch
@@ -62,6 +62,7 @@ EXPLANATIONS_DIR.mkdir(parents=True, exist_ok=True)
 # Global model and scaler (loaded on startup)
 model = None
 scaler = None
+price_scaler = None  # For converting scaled predictions back to actual prices
 feature_columns = None
 device = "cpu"
 
@@ -87,6 +88,21 @@ class PropertyFeatures(BaseModel):
     long: Optional[float] = Field(None, description="Longitude")
     sqft_living15: Optional[float] = Field(None, description="Avg sqft of 15 nearest neighbors")
     sqft_lot15: Optional[float] = Field(None, description="Avg lot size of 15 nearest neighbors")
+    
+    @model_validator(mode='after')
+    def fill_derived_features(self):
+        """Auto-fill features that can be derived from other inputs."""
+        # sqft_above should default to sqft_living if no basement
+        if self.sqft_above is None:
+            self.sqft_above = (self.sqft_living or 0) - (self.sqft_basement or 0)
+        
+        # Neighbor averages default to the property's own values
+        if self.sqft_living15 is None:
+            self.sqft_living15 = self.sqft_living or 0
+        if self.sqft_lot15 is None:
+            self.sqft_lot15 = self.sqft_lot or 0
+        
+        return self
     
     class Config:
         json_schema_extra = {
@@ -130,7 +146,7 @@ class HealthResponse(BaseModel):
 @app.on_event("startup")
 async def load_model():
     """Load model and scaler on startup."""
-    global model, scaler, feature_columns, device
+    global model, scaler, price_scaler, feature_columns, device
     
     # Check for GPU
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -152,6 +168,14 @@ async def load_model():
         print(f"Loaded feature columns: {feature_columns}")
     else:
         print(f"WARNING: Feature columns not found at {feature_cols_path}")
+    
+    # Load price scaler (for converting predictions back to actual prices)
+    price_scaler_path = MODELS_DIR / "price_scaler.joblib"
+    if price_scaler_path.exists():
+        price_scaler = joblib.load(price_scaler_path)
+        print(f"Loaded price scaler from: {price_scaler_path}")
+    else:
+        print(f"WARNING: Price scaler not found at {price_scaler_path}")
     
     # Load model
     if model_path.exists():
@@ -233,6 +257,10 @@ async def predict_price(features: PropertyFeatures):
         
         predicted_price = float(prediction.item())
         
+        # Model outputs price in thousands (was trained on price/1000)
+        # So multiply by 1000 to get actual price
+        predicted_price = predicted_price * 1000
+        
         # Ensure non-negative prediction
         predicted_price = max(0, predicted_price)
         
@@ -311,7 +339,13 @@ async def predict_with_explanation(
             
             prediction = model(img_tensor, tab_tensor)
         
-        predicted_price = max(0, float(prediction.item()))
+        predicted_price = float(prediction.item())
+        
+        # Model outputs price in thousands (was trained on price/1000)
+        # So multiply by 1000 to get actual price
+        predicted_price = predicted_price * 1000
+        
+        predicted_price = max(0, predicted_price)
         
         # Clean up
         if temp_img_path.exists():
