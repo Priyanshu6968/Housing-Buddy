@@ -26,7 +26,8 @@ models/*.pt
 # Data (don't commit large data files)
 data/images/
 *.xlsx
-*.csv
+data/processed/*.csv
+
 
 # OS
 .DS_Store
